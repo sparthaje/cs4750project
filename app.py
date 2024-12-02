@@ -59,6 +59,19 @@ def protected():
         return jsonify({"message": "Unauthorized"}), 401
     return jsonify({"message": f"Hello {session['user_id']}!"})
 
+@app.route('/get_users', methods=['GET'])
+def users():
+    conn = get_db_connection()
+    users = conn.execute('SELECT * FROM Users').fetchall()
+    conn.close()
+
+    user_list = []
+    for user in users:
+        u = dict(user)
+        user_list.append(u)
+
+    return jsonify(user_list), 200
+
 @app.route('/update_user', methods=['PUT'])
 def update_user():
     if 'user_id' not in session:
