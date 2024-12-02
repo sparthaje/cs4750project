@@ -144,35 +144,35 @@ def delete_user():
 #         conn.close()
 
 #TODO: Test
-@app.route('/update_user', methods=['PUT'])
-def update_user():
-    if 'user_id' not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+# @app.route('/update_user', methods=['PUT'])
+# def update_user():
+#     if 'user_id' not in session:
+#         return jsonify({"error": "Unauthorized"}), 401
 
-    uid = session['user_id']
-    username = request.form.get('username')
-    password = request.form.get('password')
+#     uid = session['user_id']
+#     username = request.form.get('username')
+#     password = request.form.get('password')
 
-    if not username and not password:
-        return jsonify({"error": "No fields to update"}), 400
+#     if not username and not password:
+#         return jsonify({"error": "No fields to update"}), 400
 
-    conn = get_db_connection()
-    try:
-        # Update the username if provided
-        if username:
-            conn.execute('UPDATE Users SET username = ? WHERE uid = ?', (username, uid))
+#     conn = get_db_connection()
+#     try:
+#         # Update the username if provided
+#         if username:
+#             conn.execute('UPDATE Users SET username = ? WHERE uid = ?', (username, uid))
 
-        # Update the password if provided
-        if password:
-            hashed_password = hashlib.sha256(password.encode()).hexdigest()
-            conn.execute('UPDATE Users SET password = ? WHERE uid = ?', (hashed_password, uid))
+#         # Update the password if provided
+#         if password:
+#             hashed_password = hashlib.sha256(password.encode()).hexdigest()
+#             conn.execute('UPDATE Users SET password = ? WHERE uid = ?', (hashed_password, uid))
 
-        conn.commit()
-        return jsonify({"message": "User updated successfully"}), 200
-    except sqlite3.IntegrityError as e:
-        return jsonify({"error": str(e)}), 400
-    finally:
-        conn.close()
+#         conn.commit()
+#         return jsonify({"message": "User updated successfully"}), 200
+#     except sqlite3.IntegrityError as e:
+#         return jsonify({"error": str(e)}), 400
+#     finally:
+#         conn.close()
 
 
 
