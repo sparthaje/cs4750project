@@ -27,6 +27,7 @@ def add_user():
 
     try:
         cursor.execute('INSERT INTO Users (username, password) VALUES (?, ?)', (username, hashed_password))
+        cursor.execute('INSERT INTO UserProfile (uid) VALUES ((SELECT uid FROM Users WHERE username = ?))', (username,))
         conn.commit()
         return jsonify({'message': 'User added successfully!'}), 201
     except sqlite3.IntegrityError:
@@ -59,6 +60,33 @@ def protected():
         return jsonify({"message": "Unauthorized"}), 401
     return jsonify({"message": f"Hello {session['user_id']}!"})
 
+
+@app.route('/timeline', methods=['GET'])
+def timeline():
+    # Check if the user is authenticated
+    if 'user_id' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    uid = session['user_id']
+
+    # SQL query to get posts from followed users ordered by timestamp (newest first)
+    query = f"""
+    SELECT p.pid, p.sid, p.caption
+    FROM Post p
+    JOIN FollowingList f ON p.uid = f.followed_uid
+    WHERE f.following_uid = {uid}
+    ORDER BY p.timestamp DESC;
+    """
+
+    conn = get_db_connection()
+    posts = conn.execute(query).fetchall()
+    conn.close()
+
+    return jsonify(posts), 200
+
+# TODO create an API to follow users
+
+
 # Creates a Post
 
 
@@ -86,6 +114,7 @@ def create_post():
         return jsonify({"error": str(e)}), 400
     finally:
         conn.close()
+
 
 # Gets Likes per Post
 
