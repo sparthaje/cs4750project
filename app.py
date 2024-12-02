@@ -216,7 +216,79 @@ def get_number_of_followers():
 
     return jsonify({"user_id": uid, "followers": followers['follower_count']})
 
-# TODO add DELETE, PUT
+#TODO: Test DELET API for FollowingList
+@app.route('/unfollow', methods=['DELETE'])
+def unfollow():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    following_uid = session['user_id']
+    followed_uid = request.form.get('followed_uid')
+
+    if not followed_uid:
+        return jsonify({"error": "Followed user ID is required"}), 400
+
+    conn = get_db_connection()
+    try:
+        # Delete the following relationship
+        result = conn.execute(
+            'DELETE FROM FollowingList WHERE following_uid = ? AND followed_uid = ?',
+            (following_uid, followed_uid)
+        )
+        conn.commit()
+
+        if result.rowcount == 0:
+            return jsonify({"error": "You are not following this user"}), 404
+
+        return jsonify({"message": f"User {following_uid} unfollowed User {followed_uid}"}), 200
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+#TODO: Test PUT API for FollowingList
+@app.route('/update_follow', methods=['PUT'])
+def update_follow():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    following_uid = session['user_id']
+    followed_uid = request.form.get('followed_uid')
+    new_followed_uid = request.form.get('new_followed_uid')
+
+    if not followed_uid or not new_followed_uid:
+        return jsonify({"error": "Both followed user ID and new followed user ID are required"}), 400
+
+    if int(following_uid) == int(new_followed_uid):
+        return jsonify({"error": "You cannot follow yourself"}), 400
+
+    conn = get_db_connection()
+    try:
+        # Check if the original relationship exists
+        existing_follow = conn.execute(
+            'SELECT * FROM FollowingList WHERE following_uid = ? AND followed_uid = ?',
+            (following_uid, followed_uid)
+        ).fetchone()
+
+        if not existing_follow:
+            return jsonify({"error": "Follow relationship does not exist"}), 404
+
+        # Update the follow relationship
+        conn.execute(
+            'UPDATE FollowingList SET followed_uid = ? WHERE following_uid = ? AND followed_uid = ?',
+            (new_followed_uid, following_uid, followed_uid)
+        )
+        conn.commit()
+
+        return jsonify({
+            "message": f"Follow relationship updated: {following_uid} now follows {new_followed_uid} instead of {followed_uid}"
+        }), 200
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+
 
 # Post Entity
 
