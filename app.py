@@ -61,6 +61,29 @@ def protected():
     return jsonify({"message": f"Hello {session['user_id']}!"})
 
 
+@app.route('/follow', methods=['POST'])
+def follow():
+    if 'user_id' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+
+    following_uid = session['user_id']
+    followed_uid = request.form['followed_uid']
+
+    if following_uid == int(followed_uid):
+        return jsonify({"message": "You cannot follow yourself!"}), 400
+
+    conn = get_db_connection()
+    try:
+        conn.execute('INSERT INTO FollowingList (following_uid, followed_uid) VALUES (?, ?)',
+                     (following_uid, followed_uid))
+        conn.commit()
+        return jsonify({"message": f"User {following_uid} followed User {followed_uid}!"}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({"message": "Already following this user!"}), 400
+    finally:
+        conn.close()
+
+
 @app.route('/timeline', methods=['GET'])
 def timeline():
     # Check if the user is authenticated
