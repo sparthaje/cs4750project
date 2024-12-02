@@ -1,14 +1,14 @@
 const sql = require('mssql');
 
 const config = {
-    user: 'AppUser',
-    password: 'hello',
-    server: 'desktop-i4i2uoj', // or your server IP
+    user: 'user',
+    password: 'pass',
+    server: 'server-name', // or your server IP
     port: 1433,
-    database: 'MusicSocial',
+    database: 'db_name',
     options: {
         encrypt: false,
-        instanceName: 'SQLEXPRESS01',
+        instanceName: 'instance_name',
     }
 };
 
