@@ -116,7 +116,65 @@ def delete_user():
         conn.close()
 
 
-# TODO add DELETE, PUT
+#TODO: Test DELETE and PUT APIs for User
+@app.route('/delete_user', methods=['DELETE'])
+def delete_user():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    uid = session['user_id']
+
+    conn = get_db_connection()
+    try:
+        # Delete the user and all related records
+        conn.execute('DELETE FROM UserProfile WHERE uid = ?', (uid,))
+        conn.execute('DELETE FROM FollowingList WHERE following_uid = ? OR followed_uid = ?', (uid, uid))
+        conn.execute('DELETE FROM Like WHERE uid = ?', (uid,))
+        conn.execute('DELETE FROM SuperLike WHERE uid = ?', (uid,))
+        conn.execute('DELETE FROM Post WHERE uid = ?', (uid,))
+        conn.execute('DELETE FROM Users WHERE uid = ?', (uid,))
+        conn.commit()
+
+        # Clear the session after account deletion
+        session.clear()
+        return jsonify({"message": "User account deleted successfully"}), 200
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+#TODO: Test
+@app.route('/update_user', methods=['PUT'])
+def update_user():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    uid = session['user_id']
+    username = request.form.get('username')
+    password = request.form.get('password')
+
+    if not username and not password:
+        return jsonify({"error": "No fields to update"}), 400
+
+    conn = get_db_connection()
+    try:
+        # Update the username if provided
+        if username:
+            conn.execute('UPDATE Users SET username = ? WHERE uid = ?', (username, uid))
+
+        # Update the password if provided
+        if password:
+            hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            conn.execute('UPDATE Users SET password = ? WHERE uid = ?', (hashed_password, uid))
+
+        conn.commit()
+        return jsonify({"message": "User updated successfully"}), 200
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+
 
 # FOLLOW Entity
 
