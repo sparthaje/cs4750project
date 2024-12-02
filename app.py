@@ -330,7 +330,6 @@ def update_post(pid):
         return jsonify({"error": "Unauthorized"}), 401
 
     uid = session['user_id']  # Get the logged-in user's ID
-    # post_id = request.form['pid']
     sid = request.form['sid']
     caption = request.form['caption']
 
@@ -348,11 +347,11 @@ def update_post(pid):
             return jsonify({"error": "Post not found or you do not have permission to delete it"}), 404
 
         if sid and caption:
-            post = conn.execute(
+            conn.execute(
                 'UPDATE Post SET sid = ?, caption = ? WHERE pid = ? AND uid = ?', (sid, caption, pid, uid)
             ).fetchone()
         elif caption:
-            post = conn.execute(
+            conn.execute(
                 'UPDATE Post SET caption = ? WHERE pid = ? AND uid = ?', (caption, pid, uid)
             ).fetchone()
 
@@ -390,8 +389,53 @@ def get_likes_per_post(pid):
     else:
         return jsonify({"error": "Post not found"}), 404
 
-# TODO DELETE, PUT, POST
 
+@app.route('/posts/<int:pid>/like', methods=['DELETE'])
+def delete_like(pid):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    uid = session['user_id']  # Get the logged-in user's ID
+
+    conn = get_db_connection()
+    # Verify the post belongs to the logged-in user
+    post = conn.execute(
+        'SELECT * FROM Like WHERE pid = ? AND uid = ?', (pid, uid)
+    ).fetchone()
+
+    if not post:
+        conn.close()
+        return jsonify({"error": "Post not liked by user"}), 404
+
+    # Delete the post
+    try:
+        conn.execute('DELETE FROM Like WHERE pid = ? AND uid = ?', (pid, uid))
+        conn.commit()
+        return jsonify({"message": f"Like associated with user {uid} and the liked post {pid} is deleted successfully"}), 200
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+@app.route('/posts/<int:pid>/like', methods=['POST'])
+def make_like(pid):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    uid = session['user_id']  # Ensure the post is created by the logged-in user
+
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            'INSERT INTO Like (pid, uid) VALUES (?, ?)',
+            (pid, uid)
+        )
+        conn.commit()
+        return jsonify({"message": f"Like made successfully on post {pid} by user {uid}"}), 201
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
 
 
 # User Profile Entity
