@@ -55,7 +55,7 @@ def login():
 
 @app.route('/protected', methods=['GET'])
 def protected():
-    if 'user' not in session:
+    if 'user_id' not in session:
         return jsonify({"message": "Unauthorized"}), 401
     return jsonify({"message": f"Hello {session['user_id']}!"})
 
