@@ -117,31 +117,31 @@ def delete_user():
 
 
 #TODO: Test DELETE and PUT APIs for User
-@app.route('/delete_user', methods=['DELETE'])
-def delete_user():
-    if 'user_id' not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+# @app.route('/delete_user', methods=['DELETE'])
+# def delete_user():
+#     if 'user_id' not in session:
+#         return jsonify({"error": "Unauthorized"}), 401
 
-    uid = session['user_id']
+#     uid = session['user_id']
+ 
+#     conn = get_db_connection()
+#     try:
+#         # Delete the user and all related records
+#         conn.execute('DELETE FROM UserProfile WHERE uid = ?', (uid,))
+#         conn.execute('DELETE FROM FollowingList WHERE following_uid = ? OR followed_uid = ?', (uid, uid))
+#         conn.execute('DELETE FROM Like WHERE uid = ?', (uid,))
+#         conn.execute('DELETE FROM SuperLike WHERE uid = ?', (uid,))
+#         conn.execute('DELETE FROM Post WHERE uid = ?', (uid,))
+#         conn.execute('DELETE FROM Users WHERE uid = ?', (uid,))
+#         conn.commit()
 
-    conn = get_db_connection()
-    try:
-        # Delete the user and all related records
-        conn.execute('DELETE FROM UserProfile WHERE uid = ?', (uid,))
-        conn.execute('DELETE FROM FollowingList WHERE following_uid = ? OR followed_uid = ?', (uid, uid))
-        conn.execute('DELETE FROM Like WHERE uid = ?', (uid,))
-        conn.execute('DELETE FROM SuperLike WHERE uid = ?', (uid,))
-        conn.execute('DELETE FROM Post WHERE uid = ?', (uid,))
-        conn.execute('DELETE FROM Users WHERE uid = ?', (uid,))
-        conn.commit()
-
-        # Clear the session after account deletion
-        session.clear()
-        return jsonify({"message": "User account deleted successfully"}), 200
-    except sqlite3.IntegrityError as e:
-        return jsonify({"error": str(e)}), 400
-    finally:
-        conn.close()
+#         # Clear the session after account deletion
+#         session.clear()
+#         return jsonify({"message": "User account deleted successfully"}), 200
+#     except sqlite3.IntegrityError as e:
+#         return jsonify({"error": str(e)}), 400
+#     finally:
+#         conn.close()
 
 #TODO: Test
 @app.route('/update_user', methods=['PUT'])
