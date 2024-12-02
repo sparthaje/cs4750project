@@ -1,7 +1,10 @@
 from flask import Flask, jsonify, request, render_template, session
 import sqlite3
+import hashlib
 
 app = Flask(__name__)
+app.secret_key = 'test_secret_key'
+
 DATABASE = 'database.db'
 
 
@@ -10,39 +13,55 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+# APIS for Login
 
-@app.route('/users', methods=['GET'])
-def get_users():
+
+@app.route('/add_user', methods=['POST'])
+def add_user():
+    username = request.form['username']
+    password = request.form['password']
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+
     conn = get_db_connection()
-    users = conn.execute('SELECT * FROM Users').fetchall()
-    conn.close()
-    return jsonify([dict(user) for user in users])
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('INSERT INTO Users (username, password) VALUES (?, ?)', (username, hashed_password))
+        conn.commit()
+        return jsonify({'message': 'User added successfully!'}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({'message': 'Username already exists!'}), 400
+    finally:
+        conn.close()
 
 
-@app.route('/users/<int:uid>', methods=['GET'])
-def get_user(uid):
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form['username']
+    password = request.form['password']
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
+
     conn = get_db_connection()
-    user = conn.execute('SELECT * FROM Users WHERE uid = ?', (uid,)).fetchone()
+    user = conn.execute('SELECT * FROM Users WHERE username = ? AND password = ?',
+                        (username, hashed_password)).fetchone()
     conn.close()
-    return jsonify(dict(user)) if user else ('', 404)
+
+    if user:
+        session['user_id'] = user['uid']
+        return jsonify({'message': 'User logged in successfully!'}), 201
+    else:
+        return jsonify({'message': 'Invalid credentials!'}), 401
 
 
-@app.route('/songs', methods=['GET'])
-def get_songs():
-    conn = get_db_connection()
-    songs = conn.execute('SELECT * FROM Song').fetchall()
-    conn.close()
-    return jsonify([dict(song) for song in songs])
-
-
-@app.route('/posts', methods=['GET'])
-def get_posts():
-    conn = get_db_connection()
-    posts = conn.execute('SELECT * FROM Post').fetchall()
-    conn.close()
-    return jsonify([dict(post) for post in posts])
+@app.route('/protected', methods=['GET'])
+def protected():
+    if 'user' not in session:
+        return jsonify({"message": "Unauthorized"}), 401
+    return jsonify({"message": f"Hello {session['user_id']}!"})
 
 # Creates a Post
+
+
 @app.route('/posts', methods=['POST'])
 def create_post():
     if 'user_id' not in session:
@@ -70,6 +89,8 @@ def create_post():
         conn.close()
 
 # Gets Likes per Post
+
+
 @app.route('/posts/<int:pid>/likes', methods=['GET'])
 def get_likes_per_post(pid):
     conn = get_db_connection()
@@ -84,6 +105,8 @@ def get_likes_per_post(pid):
         return jsonify({"error": "Post not found"}), 404
 
 # Gets # followers for logged-in user
+
+
 @app.route('/users/followers', methods=['GET'])
 def get_number_of_followers():
     if 'user_id' not in session:
@@ -99,6 +122,8 @@ def get_number_of_followers():
     return jsonify({"user_id": uid, "followers": followers['follower_count']})
 
 # Updates User Profile
+
+
 @app.route('/users/profile', methods=['PUT'])
 def update_user_profile():
     if 'user_id' not in session:
@@ -123,6 +148,8 @@ def update_user_profile():
         conn.close()
 
 # Deletes a Post
+
+
 @app.route('/posts/<int:pid>', methods=['DELETE'])
 def delete_post(pid):
     if 'user_id' not in session:
