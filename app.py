@@ -67,10 +67,9 @@ def create_post():
     if 'user_id' not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.get_json()
     uid = session['user_id']  # Ensure the post is created by the logged-in user
-    sid = data.get('sid')
-    caption = data.get('caption')
+    sid = request.form['sid']
+    caption = request.form['caption']
 
     if not sid or (caption and len(caption.strip()) == 0):
         return jsonify({"error": "Invalid input"}), 400
@@ -129,9 +128,8 @@ def update_user_profile():
     if 'user_id' not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
-    data = request.get_json()
-    bio = data.get('bio')
-    location = data.get('location')
+    bio = request.form['bio']
+    location = request.form['location']
     uid = session['user_id']
 
     conn = get_db_connection()
