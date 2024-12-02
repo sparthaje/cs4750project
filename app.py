@@ -13,8 +13,9 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# User Entity
-
+'''
+User Entity
+'''
 @app.route('/add_user', methods=['POST'])
 def add_user():
     username = request.form['username']
@@ -33,7 +34,6 @@ def add_user():
         return jsonify({'message': 'Username already exists!'}), 400
     finally:
         conn.close()
-
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -129,69 +129,10 @@ def delete_user():
         conn.close()
 
 
-#TODO: Test DELETE and PUT APIs for User
-# @app.route('/delete_user', methods=['DELETE'])
-# def delete_user():
-#     if 'user_id' not in session:
-#         return jsonify({"error": "Unauthorized"}), 401
 
-#     uid = session['user_id']
- 
-#     conn = get_db_connection()
-#     try:
-#         # Delete the user and all related records
-#         conn.execute('DELETE FROM UserProfile WHERE uid = ?', (uid,))
-#         conn.execute('DELETE FROM FollowingList WHERE following_uid = ? OR followed_uid = ?', (uid, uid))
-#         conn.execute('DELETE FROM Like WHERE uid = ?', (uid,))
-#         conn.execute('DELETE FROM SuperLike WHERE uid = ?', (uid,))
-#         conn.execute('DELETE FROM Post WHERE uid = ?', (uid,))
-#         conn.execute('DELETE FROM Users WHERE uid = ?', (uid,))
-#         conn.commit()
-
-#         # Clear the session after account deletion
-#         session.clear()
-#         return jsonify({"message": "User account deleted successfully"}), 200
-#     except sqlite3.IntegrityError as e:
-#         return jsonify({"error": str(e)}), 400
-#     finally:
-#         conn.close()
-
-#TODO: Test
-# @app.route('/update_user', methods=['PUT'])
-# def update_user():
-#     if 'user_id' not in session:
-#         return jsonify({"error": "Unauthorized"}), 401
-
-#     uid = session['user_id']
-#     username = request.form.get('username')
-#     password = request.form.get('password')
-
-#     if not username and not password:
-#         return jsonify({"error": "No fields to update"}), 400
-
-#     conn = get_db_connection()
-#     try:
-#         # Update the username if provided
-#         if username:
-#             conn.execute('UPDATE Users SET username = ? WHERE uid = ?', (username, uid))
-
-#         # Update the password if provided
-#         if password:
-#             hashed_password = hashlib.sha256(password.encode()).hexdigest()
-#             conn.execute('UPDATE Users SET password = ? WHERE uid = ?', (hashed_password, uid))
-
-#         conn.commit()
-#         return jsonify({"message": "User updated successfully"}), 200
-#     except sqlite3.IntegrityError as e:
-#         return jsonify({"error": str(e)}), 400
-#     finally:
-#         conn.close()
-
-
-
-# FOLLOW Entity
-
-
+'''
+FollowingList Entity
+'''
 @app.route('/follow', methods=['POST'])
 def follow():
     if 'user_id' not in session:
@@ -383,11 +324,59 @@ def delete_post(pid):
     finally:
         conn.close()
 
-# TODO PUT
+@app.route('/posts/update_post/<int:pid>', methods=['PUT'])
+def update_post(pid):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    uid = session['user_id']  # Get the logged-in user's ID
+    # post_id = request.form['pid']
+    sid = request.form['sid']
+    caption = request.form['caption']
+
+
+    conn = get_db_connection()
+    # Verify the post belongs to the logged-in user
+    try:
+        existing_post = conn.execute(
+            'SELECT * FROM Post WHERE uid = ? AND pid = ?',
+            (uid, pid)
+        ).fetchone()
+
+        if not existing_post:
+            conn.close()
+            return jsonify({"error": "Post not found or you do not have permission to delete it"}), 404
+
+        if sid and caption:
+            post = conn.execute(
+                'UPDATE Post SET sid = ?, caption = ? WHERE pid = ? AND uid = ?', (sid, caption, pid, uid)
+            ).fetchone()
+        elif caption:
+            post = conn.execute(
+                'UPDATE Post SET caption = ? WHERE pid = ? AND uid = ?', (caption, pid, uid)
+            ).fetchone()
+
+        conn.commit()
+        return jsonify({"message": "Post updated successfully"}), 200
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+@app.route('/get_posts', methods=['GET'])
+def get_posts():
+    conn = get_db_connection()
+    posts = conn.execute('SELECT * FROM Post').fetchall()
+    conn.close()
+
+    post_list = []
+    for post in posts:
+        p = dict(post)
+        post_list.append(p)
+
+    return jsonify(post_list), 200
 
 # Like Entity
-
-
 @app.route('/posts/<int:pid>/likes', methods=['GET'])
 def get_likes_per_post(pid):
     conn = get_db_connection()
@@ -402,6 +391,8 @@ def get_likes_per_post(pid):
         return jsonify({"error": "Post not found"}), 404
 
 # TODO DELETE, PUT, POST
+
+
 
 # User Profile Entity
 
