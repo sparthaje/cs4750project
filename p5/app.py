@@ -585,6 +585,45 @@ def create_user_profile():
         conn.close()
 
 
+@app.route('/songs', methods=['POST'])
+def create_song():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    title = request.form['title']
+
+    conn = get_db_connection()
+    try:
+        # Insert song with fixed album_id (1) and duration (1)
+        cursor = conn.cursor()
+        cursor.execute(
+            'INSERT INTO Song (title, duration, album_id) VALUES (?, 1, 1)',
+            (title,)
+        )
+        conn.commit()
+
+        # Get the last inserted song ID
+        song_id = cursor.lastrowid
+
+        return jsonify({"message": "Song created successfully", "sid": song_id}), 201
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+
+@app.route('/songs/<int:sid>', methods=['GET'])
+def get_song_title(sid):
+    conn = get_db_connection()
+    song = conn.execute('SELECT title FROM Song WHERE sid = ?', (sid,)).fetchone()
+    conn.close()
+
+    if song:
+        return jsonify({"title": song['title']}), 200
+    else:
+        return jsonify({"error": "Song not found"}), 404
+
+
 @app.route('/')
 def index():
     if "user_id" not in session:

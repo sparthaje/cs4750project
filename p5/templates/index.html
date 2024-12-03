@@ -1,82 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Posts</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Posts</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container mt-4">
-        <h1 class="text-center mb-4">Posts</h1>
-
-        <div class="text-center mb-4">
-            <form id="create-post-form">
-                <textarea id="caption" class="form-control" rows="3" placeholder="Enter your caption here"></textarea>
-                <textarea id="sid" class="form-control" rows="3" placeholder="Enter your song id here"></textarea>
-                <button type="submit" class="btn btn-primary mt-2">Create Post</button>
-            </form>
-        </div>
-
-        <h3>Posts from people you follow:</h3>
-        <div id="posts-container" class="row"></div>
-
-        <div class="text-center mt-4">
-            <button id="logout-button" class="btn btn-danger">Logout</button>
-        </div>
-    </div>
-
-    <script>
-        function fetchPosts() {
-            fetch('/timeline')
+<div class="container mt-4">
+<h1 class="text-center mb-4">Posts</h1>
+<div class="text-center mb-4">
+<form id="create-post-form">
+<textarea id="caption" class="form-control" rows="3" placeholder="Enter your caption here"></textarea>
+<textarea id="song-title" class="form-control" rows="3" placeholder="Enter your song title here"></textarea>
+<button type="submit" class="btn btn-primary mt-2">Create Post</button>
+</form>
+</div>
+<h3>Posts from people you follow:</h3>
+<div id="posts-container" class="row"></div>
+<div class="text-center mt-4">
+<button id="logout-button" class="btn btn-danger">Logout</button>
+</div>
+</div>
+<script>
+function fetchPosts() {
+    fetch('/timeline')
+    .then(response => response.json())
+    .then(posts => {
+        const container = document.getElementById('posts-container');
+        container.innerHTML = ''; // Clear previous posts
+        
+        // Create a promise chain to fetch song titles for each post
+        const postPromises = posts.map(post => {
+            return fetch(`/songs/${post.sid}`)
                 .then(response => response.json())
-                .then(posts => {
-                    const container = document.getElementById('posts-container');
-                    container.innerHTML = ''; // Clear previous posts
-                    posts.forEach(post => {
-                        const postElement = document.createElement('div');
-                        postElement.className = 'col-md-4 mb-4';
-                        postElement.innerHTML = `
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="card-title">Post by User ${post.uid}</h5>
-                                    <p class="card-text">${post.caption || 'No caption'}</p>
-                                    <p class="text-muted"><small>Posted on: ${new Date(post.timestamp).toLocaleString()}</small></p>
-                                </div>
+                .then(songData => ({
+                    ...post,
+                    songTitle: songData.title
+                }))
+                .catch(() => ({
+                    ...post,
+                    songTitle: 'Unknown Song'
+                }));
+        });
+
+        // Wait for all song titles to be fetched
+        Promise.all(postPromises)
+            .then(postsWithSongTitles => {
+                postsWithSongTitles.forEach(post => {
+                    const postElement = document.createElement('div');
+                    postElement.className = 'col-md-4 mb-4';
+                    postElement.innerHTML = `
+                        <div class="card">
+                            <div class="card-body">
+                                <img src="https://png.pngtree.com/png-clipart/20190516/original/pngtree-musical-note-festival-element-commercial-material-music-symbol-notemusic-materialcarnivalmusiccommercial-materialc4d-png-image_4054579.jpg" width=25 /> <br/>
+                                <h5 class="card-title">Song: ${post.songTitle}</h5>
+                                <p class="card-text text-muted small">${post.caption || 'No caption'}</p>
+                                <p class="text-muted"><small>Posted on: ${new Date(post.timestamp).toLocaleString()}</small></p>
                             </div>
-                        `;
-                        container.appendChild(postElement);
-                    });
-                })
-                .catch(error => console.log(error));
+                        </div>
+                    `;
+                    container.appendChild(postElement);
+                });
+            });
+    })
+    .catch(error => console.log(error));
+}
+
+document.getElementById('create-post-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const song_title = document.getElementById('song-title').value;
+    const caption = document.getElementById('caption').value;
+    
+    // First, create the song
+    fetch('/songs', {
+        method: 'POST',
+        body: new URLSearchParams({ title: song_title })
+    })
+    .then(response => response.json())
+    .then(songData => {
+        // Use the song ID to create the post
+        return fetch('/posts', {
+            method: 'POST',
+            body: new URLSearchParams({
+                caption: caption,
+                sid: songData.sid
+            })
+        });
+    })
+    .then(response => response.json())
+    .then(postData => {
+        if (postData.message) {
+            // Clear form inputs
+            document.getElementById('song-title').value = '';
+            document.getElementById('caption').value = '';
+            // Refresh posts
+            fetchPosts();
         }
+    })
+    .catch(error => console.log(error));
+});
 
-        document.getElementById('create-post-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const caption = document.getElementById('caption').value;
-            const sid = document.getElementById('sid').value;
+document.getElementById('logout-button').addEventListener('click', () => {
+    fetch('/logout', { method: 'GET' })
+    .then(() => window.location.href = '/')
+    .catch(error => console.log(error));
+});
 
-            fetch('/posts', {
-                method: 'POST',
-                body: new URLSearchParams({ caption: caption, sid: sid })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    fetchPosts();
-                }
-            })
-            .catch(error => console.log(error));
-        });
-
-        document.getElementById('logout-button').addEventListener('click', () => {
-            fetch('/logout', { method: 'GET' })
-                .then(() => window.location.href = '/')
-                .catch(error => console.log(error));
-        });
-
-        // Initially fetch posts from people the user follows
-        fetchPosts();
-    </script>
+// Initially fetch posts from people the user follows
+fetchPosts();
+</script>
 </body>
 </html>

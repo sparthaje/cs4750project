@@ -17,7 +17,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE Users (
     uid INTEGER PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
-    password VARCHAR(100) NOT NULL UNIQUE
+    password VARCHAR(100) NOT NULL
 );
 
 -- FollowingList table
