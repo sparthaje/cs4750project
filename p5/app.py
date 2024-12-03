@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, session
+from flask import Flask, jsonify, request, render_template, session, redirect
 import sqlite3
 import hashlib
 
@@ -7,14 +7,18 @@ app.secret_key = 'test_secret_key'
 
 DATABASE = 'database.db'
 
+
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
+
 '''
 User Entity
 '''
+
+
 @app.route('/add_user', methods=['POST'])
 def add_user():
     username = request.form['username']
@@ -33,6 +37,28 @@ def add_user():
         return jsonify({'message': 'Username already exists!'}), 400
     finally:
         conn.close()
+
+
+@app.route('/user/username/<int:uid>', methods=['GET'])
+def get_username(uid):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    conn = get_db_connection()
+    user = conn.execute('SELECT username FROM Users WHERE uid = ?', (uid,)).fetchone()
+    conn.close()
+
+    if user:
+        return jsonify({"username": user['username']}), 200
+    else:
+        return jsonify({"error": "User not found"}), 404
+
+
+@app.route('/logout', methods=['GET'])
+def logout():
+    session.pop('user_id', None)
+    return redirect('/')
+
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -53,10 +79,11 @@ def login():
 
 
 @app.route('/verify_auth', methods=['GET'])
-def protected():
+def verify_auth():
     if 'user_id' not in session:
         return jsonify({"message": "Unauthorized"}), 401
-    return jsonify({"message": f"Hello {session['user_id']}!"})
+    return jsonify({"user_id": session['user_id']}), 200
+
 
 @app.route('/get_users', methods=['GET'])
 def users():
@@ -70,6 +97,7 @@ def users():
         user_list.append(u)
 
     return jsonify(user_list), 200
+
 
 @app.route('/update_user', methods=['PUT'])
 def update_user():
@@ -101,6 +129,7 @@ def update_user():
     finally:
         conn.close()
 
+
 @app.route('/delete_user', methods=['DELETE'])
 def delete_user():
     if 'user_id' not in session:
@@ -128,10 +157,11 @@ def delete_user():
         conn.close()
 
 
-
 '''
 FollowingList Entity
 '''
+
+
 @app.route('/follow', methods=['POST'])
 def follow():
     if 'user_id' not in session:
@@ -169,7 +199,23 @@ def get_number_of_followers():
 
     return jsonify({"user_id": uid, "followers": followers['follower_count']})
 
-#TODO: Test DELET API for FollowingList
+
+@app.route('/users/followers/<int:uid>', methods=['GET'])
+def get_number_of_followers2(uid):
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    conn = get_db_connection()
+    followers = conn.execute(
+        'SELECT COUNT(*) AS follower_count FROM FollowingList WHERE followed_uid = ?', (uid,)
+    ).fetchone()
+    conn.close()
+
+    return jsonify({"user_id": uid, "followers": followers['follower_count']})
+
+# TODO: Test DELET API for FollowingList
+
+
 @app.route('/unfollow', methods=['DELETE'])
 def unfollow():
     if 'user_id' not in session:
@@ -199,7 +245,9 @@ def unfollow():
     finally:
         conn.close()
 
-#TODO: Test PUT API for FollowingList
+# TODO: Test PUT API for FollowingList
+
+
 @app.route('/update_follow', methods=['PUT'])
 def update_follow():
     if 'user_id' not in session:
@@ -242,7 +290,6 @@ def update_follow():
         conn.close()
 
 
-
 # Post Entity
 
 
@@ -255,19 +302,22 @@ def timeline():
     uid = session['user_id']
 
     # SQL query to get posts from followed users ordered by timestamp (newest first)
-    query = f"""
-    SELECT p.pid, p.sid, p.caption
+    query = """
+    SELECT p.pid, p.sid, p.caption, p.timestamp
     FROM Post p
     JOIN FollowingList f ON p.uid = f.followed_uid
-    WHERE f.following_uid = {uid}
+    WHERE f.following_uid = ?
     ORDER BY p.timestamp DESC;
     """
 
     conn = get_db_connection()
-    posts = conn.execute(query).fetchall()
+    posts = conn.execute(query, (uid,)).fetchall()
     conn.close()
 
-    return jsonify(posts), 200
+    # Convert each row to a dictionary
+    post_list = [dict(post) for post in posts]
+
+    return jsonify(post_list), 200
 
 
 @app.route('/posts', methods=['POST'])
@@ -323,6 +373,7 @@ def delete_post(pid):
     finally:
         conn.close()
 
+
 @app.route('/posts/update_post/<int:pid>', methods=['PUT'])
 def update_post(pid):
     if 'user_id' not in session:
@@ -331,7 +382,6 @@ def update_post(pid):
     uid = session['user_id']  # Get the logged-in user's ID
     sid = request.form['sid']
     caption = request.form['caption']
-
 
     conn = get_db_connection()
     # Verify the post belongs to the logged-in user
@@ -361,6 +411,7 @@ def update_post(pid):
     finally:
         conn.close()
 
+
 @app.route('/get_posts', methods=['GET'])
 def get_posts():
     conn = get_db_connection()
@@ -375,6 +426,8 @@ def get_posts():
     return jsonify(post_list), 200
 
 # Like Entity
+
+
 @app.route('/posts/<int:pid>/likes', methods=['GET'])
 def get_likes_per_post(pid):
     conn = get_db_connection()
@@ -415,6 +468,7 @@ def delete_like(pid):
         return jsonify({"error": str(e)}), 400
     finally:
         conn.close()
+
 
 @app.route('/posts/<int:pid>/like', methods=['POST'])
 def make_like(pid):
@@ -462,6 +516,7 @@ def delete_user_profile():
     finally:
         conn.close()
 
+
 @app.route('/users/profile', methods=['GET'])
 def get_user_profile():
     if 'user_id' not in session:
@@ -476,6 +531,7 @@ def get_user_profile():
         return jsonify(dict(user_profile)), 200
     else:
         return jsonify({"error": "User profile not found"}), 404
+
 
 @app.route('/users/profile', methods=['PUT'])
 def update_user_profile():
@@ -501,6 +557,7 @@ def update_user_profile():
         return jsonify({"error": str(e)}), 400
     finally:
         conn.close()
+
 
 @app.route('/users/profiles', methods=['POST'])
 def create_user_profile():
@@ -530,7 +587,41 @@ def create_user_profile():
 
 @app.route('/')
 def index():
+    if "user_id" not in session:
+        return redirect('/auth')
     return render_template('index.html')
+
+
+@app.route('/auth', methods=['GET'])
+def auth_page():
+    if "user_id" in session:
+        return redirect('/')
+
+    return render_template('auth.html')
+
+
+@app.route('/user/<int:uid>', methods=['GET'])
+def user_profile_page(uid):
+    if "user_id" not in session:
+        return redirect('/auth')
+
+    conn = get_db_connection()
+    user = conn.execute('SELECT * FROM Users WHERE uid = ?', (uid,)).fetchone()
+    conn.close()
+
+    if not user:
+        return "User not found", 404
+
+    return render_template('profile.html')
+
+
+@app.route('/user_list')
+def user_list_page():
+    # Verify the user is authenticated
+    if 'user_id' not in session:
+        return redirect('/auth')
+
+    return render_template('user_list.html')
 
 
 if __name__ == '__main__':

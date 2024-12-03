@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h2 id="profile-username" class="mb-0">User Profile</h2>
+                    <div>
+                        <button id="follow-btn" class="btn btn-light" style="display:none;">Follow</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div id="followers-count" class="mt-2 fw-bold">Followers: 0</div>
+                        </div>
+                        <div class="col-md-8">
+                            <form id="profile-form">
+                                <div class="mb-3">
+                                    <label for="bio" class="form-label">Bio</label>
+                                    <textarea 
+                                        id="bio" 
+                                        class="form-control" 
+                                        rows="4" 
+                                        placeholder="No bio available"
+                                    ></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="location" class="form-label">Location</label>
+                                    <input 
+                                        type="text" 
+                                        id="location" 
+                                        class="form-control" 
+                                        placeholder="No location available"
+                                    >
+                                </div>
+                                <div id="edit-profile-section" style="display:none;">
+                                    <button type="submit" class="btn btn-primary">Save Profile</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const uid = window.location.pathname.split('/').pop();
+    const bioTextarea = document.getElementById('bio');
+    const locationInput = document.getElementById('location');
+    const editProfileSection = document.getElementById('edit-profile-section');
+    const profileForm = document.getElementById('profile-form');
+    const usernameHeader = document.getElementById('profile-username');
+    const followersCount = document.getElementById('followers-count');
+    const followBtn = document.getElementById('follow-btn');
+
+    async function fetchUserProfile() {
+        try {
+            const authResponse = await fetch('/verify_auth');
+            if (!authResponse.ok) {
+                window.location.href = '/auth';
+                return;
+            }
+
+            const sessionResponse = await fetch('/verify_auth');
+            const sessionData = await sessionResponse.json();
+
+            const profileResponse = await fetch(`/users/profile?uid=${uid}`);
+            const profileData = await profileResponse.json();
+
+            const followersResponse = await fetch(`/users/followers/${uid}`);
+            const followersData = await followersResponse.json();
+
+            bioTextarea.value = profileData.bio || '';
+            locationInput.value = profileData.location || '';
+            followersCount.textContent = `Followers: ${followersData.followers}`;
+
+            if (sessionData.user_id == uid) {
+                bioTextarea.disabled = false;
+                locationInput.disabled = false;
+                editProfileSection.style.display = 'block';
+                followBtn.style.display = 'none';
+            } else {
+                followBtn.style.display = 'block';
+                editProfileSection.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error fetching profile:', error);
+        }
+    }
+
+    profileForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        try {
+            const response = await fetch('/users/profiles', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `bio=${encodeURIComponent(bioTextarea.value)}&location=${encodeURIComponent(locationInput.value)}`
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert('Profile updated successfully!');
+            } else {
+                alert(`Error: ${result.error}`);
+            }
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            alert('Network error. Please try again.');
+        }
+    });
+
+    followBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch('/follow', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `followed_uid=${uid}`
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert('User followed successfully!');
+                const followersResponse = await fetch(`/users/followers?uid=${uid}`);
+                const followersData = await followersResponse.json();
+                followersCount.textContent = `Followers: ${followersData.followers}`;
+                
+                followBtn.disabled = true;
+                followBtn.textContent = 'Followed';
+            } else {
+                alert(`Error: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('Error following user:', error);
+            alert('Network error. Please try again.');
+        }
+    });
+
+    async function fetchUsername() {
+        try {
+            const usernameResponse = await fetch(`/user/username/${uid}`);
+            const usernameData = await usernameResponse.json();
+
+            if (usernameResponse.ok) {
+                usernameHeader.textContent = `${usernameData.username}'s Profile`;
+            }
+        } catch (error) {
+            console.error('Error fetching username:', error);
+        }
+    }
+
+    fetchUsername();
+    fetchUserProfile();
+});
+</script>
+</body>
+</html>
