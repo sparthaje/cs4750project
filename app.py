@@ -7,7 +7,6 @@ app.secret_key = 'test_secret_key'
 
 DATABASE = 'database.db'
 
-
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
@@ -407,7 +406,7 @@ def delete_like(pid):
         conn.close()
         return jsonify({"error": "Post not liked by user"}), 404
 
-    # Delete the post
+    # Delete the like
     try:
         conn.execute('DELETE FROM Like WHERE pid = ? AND uid = ?', (pid, uid))
         conn.commit()
@@ -443,7 +442,40 @@ def make_like(pid):
 # POST implemented in /add_user method
 
 # TODO DELETE, PUT
+@app.route('/users/profile', methods=['DELETE'])
+def delete_user_profile():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
 
+    uid = session['user_id']
+
+    conn = get_db_connection()
+    try:
+        user_profile = conn.execute('SELECT * FROM UserProfile WHERE uid = ?', (uid,)).fetchone()
+        if not user_profile:
+            return jsonify({"error": "User profile not found"}), 404
+        conn.execute('DELETE FROM UserProfile WHERE uid = ?', (uid,))
+        conn.commit()
+        return jsonify({"message": f"Profile for user {uid} deleted successfully"}), 200
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+@app.route('/users/profile', methods=['GET'])
+def get_user_profile():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    uid = session['user_id']
+    conn = get_db_connection()
+    user_profile = conn.execute('SELECT * FROM UserProfile WHERE uid = ?', (uid,)).fetchone()
+    conn.close()
+
+    if user_profile:
+        return jsonify(dict(user_profile)), 200
+    else:
+        return jsonify({"error": "User profile not found"}), 404
 
 @app.route('/users/profile', methods=['PUT'])
 def update_user_profile():
@@ -456,12 +488,40 @@ def update_user_profile():
 
     conn = get_db_connection()
     try:
+        user_profile = conn.execute('SELECT * FROM UserProfile WHERE uid = ?', (uid,)).fetchone()
+        if not user_profile:
+            return jsonify({"error": "User profile not found"}), 404
         conn.execute(
             'UPDATE UserProfile SET bio = ?, location = ? WHERE uid = ?',
             (bio, location, uid)
         )
         conn.commit()
         return jsonify({"message": "Profile updated successfully"}), 200
+    except sqlite3.IntegrityError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+@app.route('/users/profiles', methods=['POST'])
+def create_user_profile():
+    if 'user_id' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    uid = session['user_id']
+    bio = request.form['bio']
+    location = request.form['location']
+
+    conn = get_db_connection()
+    try:
+        user = conn.execute('SELECT * FROM User WHERE uid = ?', (uid,)).fetchone()
+        if not user:
+            return jsonify({"error": "User not found so cannot create profile for non-existent user"}), 404
+        conn.execute(
+            'INSERT INTO UserProfile (uid, bio, location) VALUES (?, ?, ?)',
+            (uid, bio, location)
+        )
+        conn.commit()
+        return jsonify({"message": "User profile created successfully"}), 201
     except sqlite3.IntegrityError as e:
         return jsonify({"error": str(e)}), 400
     finally:
